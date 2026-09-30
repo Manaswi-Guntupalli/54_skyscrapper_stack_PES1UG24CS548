@@ -136,8 +136,6 @@ class GameEngine:
         right = min(act.x + act.width, top_block.x + top_block.width)
         overlap = right - left
         
-        # BUG SYMPTOM: 
-        # Overlap condition is inverted so hitting empty air succeeds while landing on the tower fails.
         is_successful_drop = overlap > 0
         
         if is_successful_drop:
@@ -236,12 +234,16 @@ class GameEngine:
         title_surf = self.font_title.render("Skyscraper Stack", True, (245, 245, 245))
         screen.blit(title_surf, (self.width // 2 - title_surf.get_width() // 2, 16))
 
-        score_surf = self.font_hud.render(f"Height: {self.score}", True, (255, 220, 80))
-        screen.blit(score_surf, (self.width // 2 - score_surf.get_width() // 2, 54))
+        height = len(self.stack) - 1
+        height_surf = self.font_hud.render(f"Height: {height}", True, (255, 220, 80))
+        screen.blit(height_surf, (self.width // 2 - height_surf.get_width() // 2, 54))
+
+        score_surf = self.font_hud.render(f"Score: {self.score}", True, (255, 255, 255))
+        screen.blit(score_surf, (self.width // 2 - score_surf.get_width() // 2, 82))
 
         if self.perfect_popup_frames > 0:
             perfect_surf = self.font_hud.render("PERFECT!", True, (255, 215, 50))
-            screen.blit(perfect_surf, (self.width // 2 - perfect_surf.get_width() // 2, 88))
+            screen.blit(perfect_surf, (self.width // 2 - perfect_surf.get_width() // 2, 110))
 
         for b in self.stack:
             b.render(screen)
@@ -260,8 +262,11 @@ class GameEngine:
             over_surf = self.font_big.render("TOWER COLLAPSED!", True, (240, 75, 75))
             screen.blit(over_surf, (self.width // 2 - over_surf.get_width() // 2, self.height // 2 - 40))
 
-            final_surf = self.font_hud.render(f"Final Height: {self.score}", True, (255, 255, 255))
-            screen.blit(final_surf, (self.width // 2 - final_surf.get_width() // 2, self.height // 2 + 10))
+            final_height_surf = self.font_hud.render(f"Final Height: {len(self.stack) - 1}", True, (255, 255, 255))
+            screen.blit(final_height_surf, (self.width // 2 - final_height_surf.get_width() // 2, self.height // 2 + 10))
 
-            restart_surf = self.font_hud.render("Press [Space] or [R] to Play Again", True, (200, 200, 200))
-            screen.blit(restart_surf, (self.width // 2 - restart_surf.get_width() // 2, self.height // 2 + 50))
+            final_score_surf = self.font_hud.render(f"Final Score: {self.score}", True, (255, 255, 255))
+            screen.blit(final_score_surf, (self.width // 2 - final_score_surf.get_width() // 2, self.height // 2 + 42))
+
+            restart_surf = self.font_hud.render("Press [R] or Left-Click to Play Again", True, (200, 200, 200))
+            screen.blit(restart_surf, (self.width // 2 - restart_surf.get_width() // 2, self.height // 2 + 74))

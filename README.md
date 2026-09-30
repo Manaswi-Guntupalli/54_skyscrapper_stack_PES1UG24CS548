@@ -1,87 +1,146 @@
 # Skyscraper Stack Repair Lab
 
-This project is a precision timing and balance tower stacking game using **Pygame**. It introduces students to 1D bounding-box intersection math, dynamic geometry slicing, vertical camera offset scrolling, and escalating difficulty curves within an object-oriented codebase.
----
+Skyscraper Stack is a Pygame precision-timing tower game. The player moves blocks horizontally and drops them onto the tower. Successful drops trim overhangs, while increasingly tall towers trigger camera scrolling and atmospheric background changes.
 
-## What's Provided
+Tasks 1-4 are implemented in the current source.
 
-A working Skyscraper Stack game with:
+## Project structure
 
-- A foundation block positioned at the base of the arena
-- Horizontally oscillating active blocks that bounce between screen boundaries at escalating speeds
-- Precision placement triggered via `Space` key or left mouse click
-- Automatic dynamic width trimming based on overlap alignment against the previous tier
-- Downward camera scrolling when the stack exceeds the vertical threshold
-- A Game Over collapse screen displaying total tower height with instant restart functionality
+```text
+.
+|-- main.py
+|-- README.md
+`-- game/
+    |-- block.py
+    `-- game_engine.py
+```
 
-It has **one deliberate bug** and **three optional features** left as tasks to implement. You are expected to **analyze**, **interact with an AI assistant**, and **complete/fix** the game to make it fully functional and more interesting.
+- `main.py` initializes Pygame and runs the 60 FPS application loop.
+- `game/block.py` defines `Block` and the independent falling `Debris` object.
+- `game/game_engine.py` owns game state, input, placement, scoring, camera shifting, background rendering, and the Game Over screen.
 
-### **Use an LLM (e.g. ChatGPT or Claude) as your debugging and pair-programming partner for this lab.**
----
+Generated `game/__pycache__/` files are runtime artifacts and are not part of the source structure.
 
-## Getting Started
+## Setup and run
 
-### Setup
+Requirements:
 
-1. Make sure you have Python 3.10+ installed.
-2. Install dependencies:
+- Python 3.10 or newer
+- Pygame
+
+Install Pygame:
 
 ```bash
 pip install pygame
 ```
 
-3. Run the game:
+Run the game from the project directory:
 
 ```bash
 python main.py
 ```
 
-**Controls:** Press Space or Left-Click to drop the active block. Press Space or R to restart after Game Over.
+## Controls
 
+- During play, press `Space` or left-click to drop the active block.
+- After Game Over, press `R` or left-click to restart.
+- `Space` does not restart after Game Over.
+- Close the game window to quit.
 
-## Tasks to Complete
+## Game rules and state
 
-Each task must be completed using an iterative process involving LLM suggestions and your critical code review.
+- The foundation block starts at the bottom of the arena.
+- The active block moves horizontally and bounces between the screen margins.
+- Movement speed increases with the number of stack blocks, up to a maximum speed.
+- A placement succeeds only when the horizontal overlap is positive.
+- Zero or negative overlap causes Game Over.
+- A normal successful placement trims the active block to the intersection with the previous top block.
+- The minimum block width is 10 pixels.
 
-### Task 1: Fix the inverted overlap placement bug
+The HUD displays two separate values:
 
-Landing a block directly on top of the tower results in an immediate game over, whereas dropping a block completely off into thin air allows the tower to build upward. In game_engine.drop_block(), the placement check evaluates is_successful_drop = overlap <= 0. A positive overlap represents a successful collision, while an overlap of zero or less means the block completely missed the tower beneath it. Invert this condition so that overlap > 0 registers as a valid placement and overlap <= 0 triggers the tower collapse.
+- `Height`: placed blocks above the foundation, calculated as `len(stack) - 1`.
+- `Score`: normal placement points plus perfect-placement bonuses.
 
-### Task 2: Implement "Perfect Placement" bonus & width restoration
+## Implemented tasks
 
-Currently, any overlap trims the active block to the exact overlapping width. In game_engine.drop_block(), implement a precision reward: if the alignment error between the active block and the top stack block is within a tiny margin (e.g., abs(act.x - top_block.x) <= 3), snap the block directly into alignment without trimming its width, display a golden "PERFECT!" popup label, and reward extra bonus score points. If the player lands 3 perfect placements in a row, slightly expand the block width back outward.
- 
-### Task 3: Implement falling off-cut debris animation
+### Task 1: Correct overlap placement logic
 
-When a block is trimmed, the overhang portion simply disappears from the scene instantly. Create an off-cut debris object representing the sliced-off excess rectangle that retains gravity velocity, rotating and falling off the screen to give satisfying visual weight to block trims.
+`drop_block()` treats `overlap > 0` as a successful placement. A zero or negative overlap triggers Game Over.
 
-### Task 4: Implement combo streak background color shifting
+### Task 2: Perfect placement and width restoration
 
-The background currently stays a flat dark grey throughout the entire climb. Enhance game_engine.render() so the sky background gradually transitions through atmospheric gradients (e.g., twilight blue, dusk purple, night starfield, stratosphere black) as the player stacks the skyscraper higher and higher into the sky.
----
+- Alignment within 3 pixels of the previous top block is perfect.
+- A normal placement awards 1 point.
+- A perfect placement awards 3 points total: 1 placement point plus a 2-point bonus.
+- Perfect placements preserve the active block width instead of trimming it.
+- A golden `PERFECT!` popup lasts for 60 update frames, approximately one second at 60 FPS.
+- Consecutive perfect placements form a streak.
+- Every third consecutive perfect placement restores 10 pixels of width.
+- Width is clamped between 10 pixels and the original 180-pixel base width.
+- A successful non-perfect placement resets the perfect streak.
 
-## Expected Behavior
+### Task 3: Falling off-cut debris
 
-- Dropping a block while aligned over the stack trims the edges, places the block, and increases the tower height score.
-- Dropping a block outside the stack triggers the TOWER COLLAPSED! game over screen.
-- As the stack grows taller, the camera smoothly scrolls downward so the top of the tower remains visible.
-- Pressing Space or R on the collapse screen resets the tower and restores base dimensions.
+When a normal placement trims a positive left or right overhang, the removed rectangle becomes an independent debris object. Debris:
 
-## Folder Structure
+- Falls under gravity.
+- Moves away from the tower.
+- Rotates while falling.
+- Is rendered separately from the stack.
+- Is removed after leaving the screen.
 
-```
-word_scramble/
-├── game/
-│   ├── game_engine.py
-│   └── text_box.py
-├── main.py
-└── README.md
-```
+Debris does not affect collision, score, height, placement, or camera decisions. Perfect placements do not create debris because they do not trim an overhang.
 
-## Submission Checklist
+### Task 4: Height-based atmospheric background
 
-Submission is only the following three things:
+The background uses the number of placed blocks above the foundation, not the score. It is drawn as a smooth vertical gradient and transitions through these height ranges:
 
-- [] A 10-second video of gameplay **before** your changes, showing the bug/broken behavior
-- [] A 10-second video of gameplay **after** your changes, showing the bug fixed and the new features working
-- [] The Chat/LLM used page link, with the complete chat history
+| Tower height | Stage |
+|---:|---|
+| 0-4 | Twilight blue |
+| 5-9 | Dusk purple |
+| 10-19 | Deep night blue |
+| 20 and above | Stratosphere black |
+
+The final stratosphere stage is clamped for very tall towers. Stars are generated once during reset with a local seeded generator, so their positions remain stable between frames. They fade in during the dusk-to-night transition and are strongest in the night stages.
+
+## Camera scrolling
+
+When the newly placed block reaches above the vertical threshold (`y < 180`), the stack is shifted downward by 32 pixels. Existing debris is shifted with the stack so it remains visually consistent. This is a discrete camera offset adjustment, not a continuously animated camera pan.
+
+## Game Over and restart
+
+After a missed placement, the game displays a dark Game Over overlay with:
+
+- Final tower height
+- Final score
+- Restart instructions
+
+The active block stops moving, but existing debris continues its visual animation. Pressing `R` or left-click calls `reset()`, which restores the base tower, score, perfect streak, popup state, debris, and initial twilight background.
+
+## Testing and validation
+
+There is no checked-in automated test suite. The implementation has been validated with:
+
+- Python syntax checks for all source files.
+- Deterministic logic checks for positive, zero, and negative overlap.
+- Perfect-placement score, popup, streak, width, and reset checks.
+- Debris geometry, motion, cleanup, and isolation checks.
+- Background interpolation, star stability, night visibility, clamping, restart, and foreground-render checks.
+
+For final manual validation after installing Pygame, record a run showing:
+
+1. A successful normal overlap and trimmed block.
+2. A perfect placement with the popup and bonus score.
+3. A third consecutive perfect placement restoring width.
+4. A trimmed placement producing falling debris.
+5. The background changing as the tower grows.
+6. A missed placement causing Game Over.
+7. Restart using `R` and left-click.
+
+## Submission checklist
+
+- [ ] 10-second video before the changes showing the original overlap bug, if required by the lab.
+- [ ] 10-second video after the changes showing the corrected behavior and implemented features.
+- [ ] Link to the Chat/LLM page containing the complete conversation history.
