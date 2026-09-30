@@ -9,6 +9,13 @@ class GameEngine:
         self.height = height
         self.block_height = 28
         self.base_width = 180
+        self.background_thresholds = (0, 5, 10, 20)
+        self.background_colours = [
+            ((70, 120, 190), (18, 35, 75)),
+            ((105, 70, 155), (30, 18, 60)),
+            ((28, 48, 105), (6, 12, 32)),
+            ((12, 18, 30), (0, 0, 5)),
+        ]
 
         self.font_title = pygame.font.SysFont(None, 38)
         self.font_hud = pygame.font.SysFont(None, 28)
@@ -27,6 +34,69 @@ class GameEngine:
         ]
         return palette[index % len(palette)]
 
+    def generate_stars(self):
+        rng = random.Random(1337)
+        stars = []
+        for _ in range(90):
+            stars.append(
+                (
+                    rng.randrange(self.width),
+                    rng.randrange(self.height),
+                    rng.choice([1, 1, 1, 2]),
+                    rng.randrange(150, 256),
+                )
+            )
+        return stars
+
+    def get_background_colour(self):
+        tower_height = max(0, len(self.stack) - 1)
+        thresholds = self.background_thresholds
+
+        if tower_height >= thresholds[-1]:
+            top_colour, bottom_colour = self.background_colours[-1]
+            return top_colour, bottom_colour, 1.0
+
+        for index in range(len(thresholds) - 1):
+            start = thresholds[index]
+            end = thresholds[index + 1]
+            if tower_height < end:
+                progress = (tower_height - start) / (end - start)
+                start_top, start_bottom = self.background_colours[index]
+                end_top, end_bottom = self.background_colours[index + 1]
+                top_colour = self._interpolate_colour(start_top, end_top, progress)
+                bottom_colour = self._interpolate_colour(start_bottom, end_bottom, progress)
+                night_strength = max(0.0, min(1.0, (tower_height - thresholds[1]) / (thresholds[2] - thresholds[1])))
+                return top_colour, bottom_colour, night_strength
+
+        return self.background_colours[-1][0], self.background_colours[-1][1], 1.0
+
+    def _interpolate_colour(self, start_colour, end_colour, progress):
+        progress = max(0.0, min(1.0, progress))
+        return tuple(
+            int(start_channel + (end_channel - start_channel) * progress)
+            for start_channel, end_channel in zip(start_colour, end_colour)
+        )
+
+    def draw_stars(self, screen, night_strength):
+        if night_strength <= 0:
+            return
+
+        for x, y, radius, brightness in self.stars:
+            star_brightness = int(brightness * night_strength)
+            colour = (star_brightness, star_brightness, min(255, star_brightness + 20))
+            pygame.draw.circle(screen, colour, (x, y), radius)
+
+    def draw_background(self, screen):
+        top_colour, bottom_colour, night_strength = self.get_background_colour()
+        denominator = max(1, self.height - 1)
+
+        for y in range(self.height):
+            progress = y / denominator
+            colour = self._interpolate_colour(top_colour, bottom_colour, progress)
+            pygame.draw.line(screen, colour, (0, y), (self.width, y))
+
+        self.draw_stars(screen, night_strength)
+
     def reset(self):
         self.score = 0
         self.game_over = False
@@ -37,6 +107,7 @@ class GameEngine:
         self.perfect_restore_amount = 10.0
         self.perfect_popup_duration = 60
         self.debris = []
+        self.stars = self.generate_stars()
 
         base_x = (self.width - self.base_width) // 2
         base_y = self.height - 60
@@ -160,7 +231,7 @@ class GameEngine:
         ]
 
     def render(self, screen):
-        screen.fill((24, 27, 36))
+        self.draw_background(screen)
 
         title_surf = self.font_title.render("Skyscraper Stack", True, (245, 245, 245))
         screen.blit(title_surf, (self.width // 2 - title_surf.get_width() // 2, 16))
