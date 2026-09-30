@@ -60,7 +60,7 @@ class GameEngine:
         
         # BUG SYMPTOM: 
         # Overlap condition is inverted so hitting empty air succeeds while landing on the tower fails.
-        is_successful_drop = overlap <= 0
+        is_successful_drop = overlap > 0
         
         if is_successful_drop:
             trimmed_width = max(10.0, overlap)
