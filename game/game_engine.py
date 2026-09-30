@@ -1,6 +1,6 @@
 import random
 import pygame
-from game.block import Block
+from game.block import Block, Debris
 
 
 class GameEngine:
@@ -30,6 +30,13 @@ class GameEngine:
     def reset(self):
         self.score = 0
         self.game_over = False
+        self.perfect_streak = 0
+        self.perfect_popup_frames = 0
+        self.perfect_tolerance = 3.0
+        self.perfect_bonus = 2
+        self.perfect_restore_amount = 10.0
+        self.perfect_popup_duration = 60
+        self.debris = []
 
         base_x = (self.width - self.base_width) // 2
         base_y = self.height - 60
@@ -63,15 +70,65 @@ class GameEngine:
         is_successful_drop = overlap > 0
         
         if is_successful_drop:
-            trimmed_width = max(10.0, overlap)
-            new_block = Block(left, act.y, trimmed_width, self.block_height, act.color, speed=0)
+            is_perfect = abs(act.x - top_block.x) <= self.perfect_tolerance
+
+            if is_perfect:
+                self.perfect_streak += 1
+                self.perfect_popup_frames = self.perfect_popup_duration
+                new_width = max(10.0, min(self.base_width, act.width))
+                new_x = act.x
+                self.score += 1 + self.perfect_bonus
+
+                if self.perfect_streak % 3 == 0:
+                    new_width = min(self.base_width, new_width + self.perfect_restore_amount)
+                    center_x = act.x + act.width / 2
+                    new_x = center_x - new_width / 2
+                    new_x = max(20.0, min(new_x, self.width - 20.0 - new_width))
+            else:
+                self.perfect_streak = 0
+                new_width = max(10.0, overlap)
+                new_x = left
+                self.score += 1
+
+                left_overhang = top_block.x - act.x
+                if left_overhang > 0:
+                    self.debris.append(
+                        Debris(
+                            act.x,
+                            act.y,
+                            left_overhang,
+                            self.block_height,
+                            act.color,
+                            velocity_x=-2.5,
+                            velocity_y=-2.0,
+                            angular_velocity=-7.0,
+                        )
+                    )
+
+                right_overhang = act.x + act.width - (top_block.x + top_block.width)
+                if right_overhang > 0:
+                    self.debris.append(
+                        Debris(
+                            top_block.x + top_block.width,
+                            act.y,
+                            right_overhang,
+                            self.block_height,
+                            act.color,
+                            velocity_x=2.5,
+                            velocity_y=-2.0,
+                            angular_velocity=7.0,
+                        )
+                    )
+
+            new_block = Block(new_x, act.y, new_width, self.block_height, act.color, speed=0)
             self.stack.append(new_block)
-            self.score += 1
 
             if new_block.y < 180:
                 shift_amount = self.block_height + 4
                 for b in self.stack:
                     b.y += shift_amount
+                for debris in self.debris:
+                    debris.y += shift_amount
 
             self.spawn_active_block()
         else:
@@ -92,6 +149,15 @@ class GameEngine:
     def update(self):
         if not self.game_over:
             self.active_block.update(self.width)
+        if self.perfect_popup_frames > 0:
+            self.perfect_popup_frames -= 1
+        for debris in self.debris:
+            debris.update()
+        self.debris = [
+            debris
+            for debris in self.debris
+            if not debris.is_off_screen(self.width, self.height)
+        ]
 
     def render(self, screen):
         screen.fill((24, 27, 36))
@@ -102,8 +168,15 @@ class GameEngine:
         score_surf = self.font_hud.render(f"Height: {self.score}", True, (255, 220, 80))
         screen.blit(score_surf, (self.width // 2 - score_surf.get_width() // 2, 54))
 
+        if self.perfect_popup_frames > 0:
+            perfect_surf = self.font_hud.render("PERFECT!", True, (255, 215, 50))
+            screen.blit(perfect_surf, (self.width // 2 - perfect_surf.get_width() // 2, 88))
+
         for b in self.stack:
             b.render(screen)
+
+        for debris in self.debris:
+            debris.render(screen)
 
         if not self.game_over:
             self.active_block.render(screen)
